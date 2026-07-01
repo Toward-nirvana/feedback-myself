@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="주간 회고">
+  <meta name="theme-color" content="#2d6a4f">
+  <title>주간 회고</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root {
+      --bg: #f5f4ef;
+      --surface: #ffffff;
+      --primary: #2d6a4f;
+      --primary-lt: #52b788;
+      --text: #111827;
+      --sub: #6b7280;
+      --border: #e5e7eb;
+      --r: 14px;
+      --career: #2563eb;
+      --relation: #d97706;
+      --health: #059669;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111827; --surface: #1f2937; --text: #f9fafb;
+        --sub: #9ca3af; --border: #374151;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+      background: var(--bg); color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── 화면 전환 ── */
+    .screen { display: none; min-height: 100vh; }
+    .screen.active { display: block; }
+
+    /* ── 헤더 ── */
+    .hdr {
+      background: var(--surface); padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .hdr h1 { font-size: 17px; font-weight: 700; }
+
+    /* ── 바텀 탭 ── */
+    .tab-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      display: flex; padding-bottom: env(safe-area-inset-bottom, 0px);
+      z-index: 50;
+    }
+    .tab {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 3px; padding: 10px 4px 8px;
+      background: none; border: none; cursor: pointer;
+      color: var(--sub); font-size: 11px; font-family: inherit;
+    }
+    .tab.on { color: var(--primary); font-weight: 700; }
+    .tab svg { width: 22px; height: 22px; stroke-width: 1.8; }
+
+    /* ── 컨텐츠 영역 ── */
+    .body { padding: 16px 16px 90px; max-width: 600px; margin: 0 auto; }
+
+    /* ── 카드 ── */
+    .card {
+      background: var(--surface); border-radius: var(--r);
+      padding: 18px 16px; margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .card-ttl {
+      font-size: 11px; font-weight: 700; letter-spacing: .8px;
+      text-transform: uppercase; color: var(--sub); margin-bottom: 12px;
+    }
+
+    /* ── 자산 뱃지 ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 12px; border-radius: 20px;
+      font-size: 13px; font-weight: 700; margin-bottom: 16px;
+    }
+    .badge.c { background: #eff6ff; color: var(--career); }
+    .badge.r { background: #fffbeb; color: var(--relation); }
+    .badge.h { background: #ecfdf5; color: var(--health); }
+
+    /* ── 폼 ── */
+    label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    input, textarea {
+      width: 100%; padding: 12px 14px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 15px; font-family: inherit; color: var(--text);
+      background: var(--surface); outline: none;
+      transition: border-color .2s; margin-bottom: 14px;
+      -webkit-appearance: none;
+    }
+    input:focus, textarea:focus { border-color: var(--primary); }
+    textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+
+    /* ── 버튼 ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 13px 18px; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      border: none; font-family: inherit; transition: .15s;
+    }
+    .btn-p { background: var(--primary); color: #fff; width: 100%; }
+    .btn-p:active { background: #1e4d38; }
+    .btn-s { background: var(--border); color: var(--text); }
+    .btn-g { background: none; color: var(--primary); padding: 8px 10px; font-size: 14px; }
+    .btn-row { display: flex; gap: 10px; margin-top: 8px; }
+    .btn-row .btn { flex: 1; }
+
+    /* ── 프로그레스 ── */
+    .prog-wrap { margin-bottom: 16px; }
+    .prog-lbl { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); margin-bottom: 6px; }
+    .prog-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .prog-fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width .35s ease; }
+
+    /* ── GROW 단계 헤더 ── */
+    .grow-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .grow-num {
+      min-width: 28px; height: 28px; border-radius: 50%;
+      background: var(--primary); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+    }
+    .grow-ttl { font-size: 17px; font-weight: 800; }
+    .grow-q { font-size: 15px; color: var(--sub); line-height: 1.65; margin-bottom: 14px; }
+
+    /* ── 홈 히어로 ── */
+    .hero {
+      background: linear-gradient(135deg, #2d6a4f, #40916c, #52b788);
+      border-radius: var(--r); padding: 22px 18px; color: #fff; margin-bottom: 14px;
+    }
+    .hero .dt { font-size: 13px; opacity: .8; margin-bottom: 6px; }
+    .hero h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+    .hero p  { font-size: 13px; opacity: .85; }
+
+    /* ── 섹션 헤더 ── */
+    .sec-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .sec-hdr h3 { font-size: 15px; font-weight: 700; }
+
+    /* ── 기록 아이템 ── */
+    .rec-item {
+      background: var(--surface); border-radius: var(--r);
+      padding: 15px 16px; margin-bottom: 10px; cursor: pointer;
+      border: 1.5px solid transparent;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      transition: border-color .15s;
+    }
+    .rec-item:hover { border-color: var(--primary-lt); }
+    .rec-item .rdt { font-size: 12px; color: var(--sub); margin-bottom: 3px; }
+    .rec-item .rpv { font-size: 14px; font-weight: 500; }
+
+    /* ── 패턴 비교 테이블 ── */
+    .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { border-collapse: collapse; width: 100%; min-width: 400px; font-size: 13px; }
+    th, td { padding: 10px 12px; border: 1px solid var(--border); vertical-align: top; text-align: left; }
+    th { background: #f9fafb; font-weight: 700; color: var(--sub); font-size: 11px; white-space: nowrap; }
+    td { line-height: 1.5; }
+    tr:hover td { background: #f9fafb; }
+
+    /* ── 코칭 섹션 ── */
+    .coaching-prompt {
+      background: #f8fafc; border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 14px;
+      font-size: 13px; line-height: 1.7; color: var(--sub);
+      max-height: 240px; overflow-y: auto;
+      white-space: pre-wrap; margin-bottom: 14px;
+      font-family: inherit;
+    }
+    .ai-btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .ai-btn {
+      flex: 1; min-width: 80px; padding: 11px 8px;
+      border-radius: 10px; font-size: 13px; font-weight: 700;
+      cursor: pointer; border: 1.5px solid var(--border);
+      background: var(--surface); color: var(--text);
+      font-family: inherit; text-align: center;
+      transition: .15s;
+    }
+    .ai-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ── 로딩 / 빈 상태 ── */
+    .empty { text-align: center; padding: 60px 20px; }
+    .empty .ei { font-size: 44px; margin-bottom: 12px; }
+    .empty h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .empty p  { font-size: 14px; color: var(--sub); line-height: 1.6; }
+
+    /* ── 온보딩 ── */
+    .onboard-hero { text-align: center; padding: 32px 0 24px; }
+    .onboard-hero .icon { font-size: 52px; margin-bottom: 12px; }
+    .onboard-hero h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    .onboard-hero p  { font-size: 14px; color: var(--sub); line-height: 1.6; }
+
+    .guide {
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 10px; padding: 13px 15px;
+      margin-bottom: 14px; font-size: 13px; line-height: 1.75; color: #166534;
+    }
+    .guide strong { font-weight: 700; }
+
+    /* ── 알림 배너 ── */
+    .notif-banner {
+      background: #fffbeb; border: 1px solid #fcd34d;
+      border-radius: 10px; padding: 13px 15px; margin-bottom: 14px;
+      font-size: 13px; line-height: 1.6; color: #92400e;
+    }
+
+    /* ── 토스트 ── */
+    .toast {
+      position: fixed; bottom: 80px; left: 50%;
+      transform: translateX(-50%) translateY(6px);
+      background: #111827; color: #fff;
+      padding: 11px 20px; border-radius: 8px; font-size: 14px;
+      z-index: 999; opacity: 0; transition: .2s; pointer-events: none; white-space: nowrap;
+    }
+    .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── 상세 뷰 ── */
+    .detail-field { margin-bottom: 16px; }
+    .detail-field .df-lbl {
+      font-size: 12px; font-weight: 700; color: var(--sub);
+      text-transform: uppercase; letter-spacing: .6px; margin-bottom: 5px;
+    }
+    .detail-field .df-val { font-size: 15px; line-height: 1.65; }
+
+    /* ── 설정 ── */
+    .setting-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-row .sr-lbl { font-size: 15px; font-weight: 500; }
+    .setting-row .sr-sub { font-size: 12px; color: var(--sub); margin-top: 2px; }
+    .toggle {
+      width: 44px; height: 26px; border-radius: 13px;
+      background: var(--border); border: none; cursor: pointer;
+      position: relative; transition: background .2s; flex-shrink: 0;
+    }
+    .toggle.on { background: var(--primary); }
+    .toggle::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; transition: transform .2s;
+    }
+    .toggle.on::after { transform: translateX(18px); }
+
+    @media (min-width: 600px) { .body { padding: 20px 24px 90px; } }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════
+     온보딩 — 장기 목표 입력 (최초 1회)
+══════════════════════════════ -->
+<div id="s-onboard" class="screen active">
+  <div class="hdr"><h1>처음 시작하기</h1></div>
+  <div class="body">
+    <div class="onboard-hero">
+      <div class="icon">📋</div>
+      <h2>주간 회고</h2>
+      <p>매주 나를 돌아보고, 내가 어디로 가고 있는지<br>스스로 점검하는 기록 앱입니다.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-ttl">💼 커리어 자산 — 장기 목표</div>
+      <label>3년 뒤 목표</label>
+      <textarea id="g_c3" placeholder="예: 나만의 수익 파이프라인 3개 이상, 월 수입 ○○만원"></textarea>
+      <label>10년 장기 목표</label>
+      <textarea id="g_cl" placeholder="예: 경제적 자유 — 원하는 일만 선택할 수 있는 상태"></textarea>
+      <label>현재 로드맵 / 진행 단계</label>
+      <textarea id="g_cr" placeholder="예: 1단계 AI 역량 확보(현재) → 2단계 부업 수익화 → 3단계 독립"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-ttl">🤝 관계 자산 (가정 포함) — 장기 목표</div>
+      <label>3년 뒤 목표</label>
+      <textarea id="g_r3" placeholder="예: 가족과 연 2회 해외여행, 신뢰하는 네트워크 10명"></textarea>
+      <label>10년 장기 목표</label>
+      <textarea id="g_rl" placeholder="예: 자녀에게 좋은 아빠로 기억되기"></textarea>
+      <label>현재 로드맵 / 진행 단계</label>
+      <textarea id="g_rr" placeholder="예: 매일 저녁 가족 대화 15분, 월 1회 부부 데이트"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-ttl">💪 건강 자산 — 장기 목표</div>
+      <label>3년 뒤 목표</label>
+      <textarea id="g_h3" placeholder="예: 체지방 ○○%, 만성 피로 없는 상태"></textarea>
+      <label>10년 장기 목표</label>
+      <textarea id="g_hl" placeholder="예: 60대에도 활동적으로 일할 수 있는 체력"></textarea>
+      <label>현재 로드맵 / 진행 단계</label>
+      <textarea id="g_hr" placeholder="예: 주 3회 운동 루틴 정착, 수면 7시간 확보"></textarea>
+    </div>
+
+    <button class="btn btn-p" onclick="saveGoals()">저장하고 시작하기 →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     홈
+══════════════════════════════ -->
+<div id="s-home" class="screen">
+  <div class="hdr"><h1>주간 회고</h1></div>
+  <div class="body">
+    <div class="hero">
+      <div class="dt" id="home-date"></div>
+      <h2 id="home-title">이번 주를 돌아볼 시간이에요</h2>
+      <p>커리어 · 관계 · 건강 자산 × GROW 4단계</p>
+    </div>
+
+    <button class="btn btn-p" onclick="startReview()" style="margin-bottom:20px" id="btn-start">
+      ✍️ 이번 주 회고 작성하기
+    </button>
+
+    <div id="home-done" style="display:none" class="card" style="background:#ecfdf5">
+      <div style="font-size:14px;font-weight:700;color:var(--health)">✅ 이번 주 회고 완료</div>
+      <div style="font-size:13px;color:var(--sub);margin-top:4px">기록 탭에서 확인하거나 AI 코칭을 받아보세요.</div>
+    </div>
+
+    <div class="sec-hdr">
+      <h3>최근 기록</h3>
+      <button class="btn btn-g" onclick="showTab('record')">전체 →</button>
+    </div>
+    <div id="home-recents"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     회고 입력 (12단계)
+══════════════════════════════ -->
+<div id="s-review" class="screen">
+  <div class="hdr">
+    <button class="btn btn-g" onclick="exitReview()">← 나가기</button>
+    <h1 id="rv-ttl">회고 입력</h1>
+    <span id="rv-step" style="font-size:13px;color:var(--sub)"></span>
+  </div>
+  <div class="body">
+    <div class="prog-wrap">
+      <div class="prog-lbl">
+        <span id="rv-prog-lbl"></span>
+        <span id="rv-prog-pct"></span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="rv-prog-fill"></div></div>
+    </div>
+    <div id="rv-area"></div>
+    <div class="btn-row">
+      <button class="btn btn-s" id="btn-prev" onclick="prevStep()">← 이전</button>
+      <button class="btn btn-p" id="btn-next" onclick="nextStep()" style="flex:2">다음 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     기록 목록
+══════════════════════════════ -->
+<div id="s-record" class="screen">
+  <div class="hdr">
+    <h1>기록</h1>
+    <button class="btn btn-g" id="btn-pattern" onclick="showPattern()" style="display:none">패턴 비교</button>
+  </div>
+  <div class="body" id="record-body"></div>
+</div>
+
+<!-- ══════════════════════════════
+     상세 보기
+══════════════════════════════ -->
+<div id="s-detail" class="screen">
+  <div class="hdr">
+    <button class="btn btn-g" onclick="backToRecord()">← 목록</button>
+    <h1 id="dt-date"></h1>
+    <button class="btn btn-g" onclick="deleteRecord()" style="color:#ef4444">삭제</button>
+  </div>
+  <div class="body" id="detail-body"></div>
+</div>
+
+<!-- ══════════════════════════════
+     패턴 비교
+══════════════════════════════ -->
+<div id="s-pattern" class="screen">
+  <div class="hdr">
+    <button class="btn btn-g" onclick="backToRecord()">← 뒤로</button>
+    <h1>패턴 비교</h1>
+    <span id="pat-weeks" style="font-size:13px;color:var(--sub)"></span>
+  </div>
+  <div class="body" id="pattern-body"></div>
+</div>
+
+<!-- ══════════════════════════════
+     AI 코칭 요청
+══════════════════════════════ -->
+<div id="s-coaching" class="screen">
+  <div class="hdr"><h1>AI 코칭 요청</h1></div>
+  <div class="body">
+    <div class="card">
+      <div class="card-ttl">사용 방법</div>
+      <p style="font-size:14px;line-height:1.7;color:var(--sub)">
+        아래 프롬프트를 복사해서 원하는 AI에 붙여넣으세요.<br>
+        코칭은 필요할 때만 — 자기성찰은 항상 먼저 본인이 합니다.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-ttl">코칭 범위 선택</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="sc-this" checked style="width:18px;height:18px;margin:0;flex-shrink:0"> 이번 주 회고 포함
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="sc-pattern" style="width:18px;height:18px;margin:0;flex-shrink:0"> 최근 패턴 분석 포함
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="sc-growth" style="width:18px;height:18px;margin:0;flex-shrink:0"> 인격적 성장 관점 포함
+        </label>
+      </div>
+      <label>추가 질문 (선택)</label>
+      <textarea id="coaching-custom" placeholder="예: 커리어와 관계 자산의 균형에 대해 집중적으로 봐줘." style="min-height:60px"></textarea>
+      <button class="btn btn-p" onclick="buildPrompt()">📋 프롬프트 생성하기</button>
+    </div>
+
+    <div id="coaching-result" style="display:none">
+      <div class="card">
+        <div class="card-ttl">생성된 프롬프트</div>
+        <div class="coaching-prompt" id="coaching-prompt-text"></div>
+        <button class="btn btn-p" onclick="copyPrompt()" style="margin-bottom:12px">복사하기 📋</button>
+        <div class="card-ttl" style="margin-top:4px">AI 선택해서 열기</div>
+        <div class="ai-btn-row">
+          <button class="ai-btn" onclick="openAI('claude')">Claude<br><span style="font-weight:400;font-size:11px">Pro 구독</span></button>
+          <button class="ai-btn" onclick="openAI('gemini')">Gemini<br><span style="font-weight:400;font-size:11px">무료</span></button>
+          <button class="ai-btn" onclick="openAI('chatgpt')">ChatGPT<br><span style="font-weight:400;font-size:11px">무료</span></button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-ttl">AI 코칭 응답 저장 (선택)</div>
+        <p style="font-size:13px;color:var(--sub);margin-bottom:10px;line-height:1.6">
+          AI 응답을 이번 주 기록에 함께 저장할 수 있어요.
+        </p>
+        <textarea id="coaching-response" placeholder="AI의 코칭 내용을 여기에 붙여넣으세요…"></textarea>
+        <button class="btn btn-s" onclick="saveCoachingResponse()" style="width:100%">이번 주 기록에 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     설정
+══════════════════════════════ -->
+<div id="s-settings" class="screen">
+  <div class="hdr"><h1>설정</h1></div>
+  <div class="body">
+
+    <div class="card">
+      <div class="card-ttl">🔔 알림</div>
+      <div class="setting-row">
+        <div>
+          <div class="sr-lbl">일요일 저녁 알림</div>
+          <div class="sr-sub">매주 일요일 저녁 8시</div>
+        </div>
+        <button class="toggle" id="toggle-notif" onclick="toggleNotif()"></button>
+      </div>
+      <div id="notif-guide" style="display:none" class="notif-banner">
+        ⚠️ <strong>iOS는 홈화면에 추가 후 알림이 작동합니다.</strong><br>
+        Safari → 공유 버튼 → "홈 화면에 추가"<br>
+        가장 확실한 방법: 휴대폰 알람을 매주 일요일 저녁 8시에 설정
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-ttl">📋 Notion 연동 <span style="font-weight:400;color:var(--sub)">(선택 — 멀티기기 동기화)</span></div>
+      <div class="guide">
+        <strong>설정 방법 (5분):</strong><br>
+        1. notion-worker.js → Cloudflare Workers 배포 (무료)<br>
+        2. Worker URL 아래 입력<br>
+        3. Notion 통합 토큰 + DB ID 입력<br>
+        → 이후 모든 기기에서 기록이 자동 동기화됩니다.
+      </div>
+      <label>Worker URL</label>
+      <input type="url" id="s-worker" placeholder="https://your-worker.workers.dev">
+      <label>Notion DB ID</label>
+      <input type="text" id="s-dbid" placeholder="32자리 영숫자">
+      <label>Notion 보안 토큰 <span style="font-weight:400;color:var(--sub)">(Worker 배포 시 설정한 값)</span></label>
+      <input type="password" id="s-secret" placeholder="임의의 비밀 문자열">
+      <button class="btn btn-p" onclick="saveNotionSettings()">저장</button>
+    </div>
+
+    <div class="card">
+      <div class="card-ttl">🎯 장기 목표 수정</div>
+      <button class="btn btn-s" onclick="showOnboard()" style="width:100%">장기 목표 다시 입력하기</button>
+    </div>
+
+    <div class="card">
+      <div class="card-ttl">📦 데이터 백업</div>
+      <button class="btn btn-s" onclick="exportData()" style="width:100%;margin-bottom:10px">JSON으로 내보내기</button>
+      <button class="btn btn-s" onclick="document.getElementById('imp').click()" style="width:100%">JSON 가져오기</button>
+      <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+
+    <div class="card">
+      <div class="card-ttl" style="color:#ef4444">⚠️ 위험</div>
+      <button class="btn" onclick="resetAll()" style="background:#fee2e2;color:#ef4444;width:100%">모든 데이터 초기화</button>
+    </div>
+
+    <p style="font-size:12px;color:var(--sub);text-align:center;margin-top:8px">
+      이 앱은 어떤 외부 서버에도 데이터를 전송하지 않습니다.<br>
+      Notion 연동 설정 시에만 본인의 Cloudflare Worker로 전송됩니다.
+    </p>
+  </div>
+</div>
+
+<!-- 바텀 탭 -->
+<nav class="tab-bar" id="tab-bar" style="display:none">
+  <button class="tab on" id="tab-home" onclick="showTab('home')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>홈
+  </button>
+  <button class="tab" id="tab-record" onclick="showTab('record')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>기록
+  </button>
+  <button class="tab" id="tab-coaching" onclick="showTab('coaching')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>AI 코칭
+  </button>
+  <button class="tab" id="tab-settings" onclick="showTab('settings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>설정
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// 상수
+// ══════════════════════════════════════════════
+const ASSETS = [
+  { key:'career',   label:'커리어 자산',         cls:'c', icon:'💼', gk:['c3','cl','cr'] },
+  { key:'relation', label:'관계 자산 (가정 포함)', cls:'r', icon:'🤝', gk:['r3','rl','rr'] },
+  { key:'health',   label:'건강 자산',            cls:'h', icon:'💪', gk:['h3','hl','hr'] },
+];
+const STAGES = [
+  { key:'goal',    label:'목표',      sym:'①', q:'이번 주 이 영역에서 지향했던 건 무엇이었나요?' },
+  { key:'reality', label:'실제',      sym:'②', q:'실제로 무엇을 했나요?' },
+  { key:'gap',     label:'격차·태도', sym:'③', q:'목표와 실제의 격차는? 그 과정에서 어떤 태도로 임했나요?' },
+  { key:'next',    label:'다음 행동', sym:'④', q:'다음 주엔 무엇을 다르게, 또는 이어서 할 건가요?' },
+];
+const TOTAL = ASSETS.length * STAGES.length; // 12
+
+// ══════════════════════════════════════════════
+// 저장소
+// ══════════════════════════════════════════════
+const ls  = (k, d=null) => { try { return JSON.parse(localStorage.getItem(k))??d; } catch { return d; } };
+const lsS = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+const getGoals   = () => ls('goals', {});
+const getRecords = () => ls('records', []);
+const getCfg     = () => ls('cfg', {});
+
+function upsertRecord(r) {
+  const recs = getRecords();
+  const i = recs.findIndex(x => x.weekKey === r.weekKey);
+  if (i >= 0) recs[i] = r; else recs.unshift(r);
+  lsS('records', recs);
+}
+
+// ══════════════════════════════════════════════
+// 앱 초기화
+// ══════════════════════════════════════════════
+let currentDetailId = null;
+
+window.addEventListener('load', () => {
+  registerSW();
+  if (!getGoals().career) { show('s-onboard'); return; }
+  initHome();
+  show('s-home');
+  showTabBar(true);
+});
+
+function registerSW() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+}
+
+// ══════════════════════════════════════════════
+// 온보딩 — 장기 목표
+// ══════════════════════════════════════════════
+function saveGoals() {
+  const goals = {
+    career:   { y3:v('g_c3'), long:v('g_cl'), road:v('g_cr') },
+    relation: { y3:v('g_r3'), long:v('g_rl'), road:v('g_rr') },
+    health:   { y3:v('g_h3'), long:v('g_hl'), road:v('g_hr') },
+  };
+  lsS('goals', goals);
+  syncGoalsToNotion(goals);
+  initHome();
+  show('s-home');
+  showTabBar(true);
+  toast('장기 목표가 저장되었어요');
+}
+
+function showOnboard() {
+  const g = getGoals();
+  sv('g_c3', g.career?.y3);  sv('g_cl', g.career?.long);  sv('g_cr', g.career?.road);
+  sv('g_r3', g.relation?.y3); sv('g_rl', g.relation?.long); sv('g_rr', g.relation?.road);
+  sv('g_h3', g.health?.y3);  sv('g_hl', g.health?.long);  sv('g_hr', g.health?.road);
+  show('s-onboard');
+  showTabBar(false);
+}
+
+// ══════════════════════════════════════════════
+// 홈
+// ══════════════════════════════════════════════
+function initHome() {
+  const now = new Date();
+  document.getElementById('home-date').textContent =
+    now.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+
+  const thisWeek = getWeekKey();
+  const recs = getRecords();
+  const done = recs.some(r => r.weekKey === thisWeek);
+
+  document.getElementById('btn-start').style.display = done ? 'none' : 'flex';
+  document.getElementById('home-done').style.display = done ? 'block' : 'none';
+  document.getElementById('home-title').textContent = done
+    ? '이번 주 회고 완료 ✅' : '이번 주를 돌아볼 시간이에요';
+
+  const el = document.getElementById('home-recents');
+  const recent = recs.slice(0, 3);
+  if (!recent.length) {
+    el.innerHTML = '<p style="font-size:14px;color:var(--sub);text-align:center;padding:24px 0">아직 기록이 없어요</p>';
+    return;
+  }
+  el.innerHTML = recent.map(r => `
+    <div class="rec-item" onclick="openDetail('${r.id}')">
+      <div class="rdt">${esc(r.dateLabel)}</div>
+      <div class="rpv">${esc(r.preview || '기록 보기')}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// 회고 입력 (12단계)
+// ══════════════════════════════════════════════
+let answers = {};
+let step = 0;
+
+function startReview() {
+  answers = {};
+  step = 0;
+  renderStep();
+  show('s-review');
+  showTabBar(false);
+}
+
+function exitReview() {
+  if (!Object.keys(answers).length || confirm('입력 중인 내용이 사라집니다. 나가시겠어요?')) {
+    show('s-home');
+    showTabBar(true);
+  }
+}
+
+function si(i) { return { asset: ASSETS[Math.floor(i/4)], stage: STAGES[i%4] }; }
+
+function renderStep() {
+  const { asset, stage } = si(step);
+  const pct = Math.round((step / TOTAL) * 100);
+  const key = `${asset.key}_${stage.key}`;
+  const saved = answers[key] || '';
+  const isLast = step === TOTAL - 1;
+
+  document.getElementById('rv-ttl').textContent = asset.label;
+  document.getElementById('rv-step').textContent = `${step+1} / ${TOTAL}`;
+  document.getElementById('rv-prog-lbl').textContent = `${asset.icon} ${stage.label}`;
+  document.getElementById('rv-prog-pct').textContent = `${pct}%`;
+  document.getElementById('rv-prog-fill').style.width = pct + '%';
+  document.getElementById('btn-prev').disabled = step === 0;
+  document.getElementById('btn-next').textContent = isLast ? '완료하기 ✅' : '다음 →';
+
+  document.getElementById('rv-area').innerHTML = `
+    <div class="card">
+      <span class="badge ${asset.cls}">${asset.icon} ${asset.label}</span>
+      <div class="grow-hdr">
+        <div class="grow-num">${stage.sym}</div>
+        <div class="grow-ttl">${stage.label}</div>
+      </div>
+      <div class="grow-q">${stage.q}</div>
+      <textarea id="ans" placeholder="자유롭게 작성해주세요…">${esc(saved)}</textarea>
+    </div>`;
+  setTimeout(() => document.getElementById('ans')?.focus(), 80);
+}
+
+function saveAns() {
+  const { asset, stage } = si(step);
+  answers[`${asset.key}_${stage.key}`] = document.getElementById('ans')?.value?.trim() || '';
+}
+
+function nextStep() {
+  saveAns();
+  if (step < TOTAL - 1) { step++; renderStep(); }
+  else finishReview();
+}
+
+function prevStep() {
+  saveAns();
+  if (step > 0) { step--; renderStep(); }
+}
+
+function finishReview() {
+  const wk = getWeekKey();
+  const dl = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+  // 다음 행동 필드를 미리보기로 사용
+  const preview = answers['career_next'] || answers['career_goal'] || '';
+  const record = {
+    id: wk + '_' + Date.now(),
+    weekKey: wk,
+    dateLabel: dl,
+    answers: { ...answers },
+    coaching: '',
+    preview: preview.substring(0, 60) + (preview.length > 60 ? '…' : ''),
+    createdAt: new Date().toISOString(),
+  };
+  upsertRecord(record);
+  syncRecordToNotion(record);
+  // 알림: 다음 주 SW에 예약
+  navigator.serviceWorker?.controller?.postMessage({ type: 'SCHEDULE_NOTIFICATION' });
+  initHome();
+  show('s-home');
+  showTabBar(true);
+  toast('이번 주 회고가 저장되었어요 ✅');
+}
+
+// ══════════════════════════════════════════════
+// 기록 목록
+// ══════════════════════════════════════════════
+function renderRecordList() {
+  const recs = getRecords();
+  const el = document.getElementById('record-body');
+  document.getElementById('btn-pattern').style.display = recs.length >= 2 ? 'block' : 'none';
+
+  if (!recs.length) {
+    el.innerHTML = `<div class="empty"><div class="ei">📭</div><h3>아직 기록이 없어요</h3><p>첫 번째 회고를 작성하면<br>여기에 쌓입니다.</p></div>`;
+    return;
+  }
+  el.innerHTML = recs.map(r => `
+    <div class="rec-item" onclick="openDetail('${r.id}')">
+      <div class="rdt">${esc(r.dateLabel)} · ${esc(r.weekKey)}</div>
+      <div class="rpv">${esc(r.preview || '기록 보기')}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// 상세 보기
+// ══════════════════════════════════════════════
+function openDetail(id) {
+  const r = getRecords().find(x => x.id === id);
+  if (!r) return;
+  currentDetailId = id;
+  document.getElementById('dt-date').textContent = r.dateLabel;
+
+  let html = '';
+  ASSETS.forEach(asset => {
+    html += `<div class="card"><span class="badge ${asset.cls}">${asset.icon} ${asset.label}</span>`;
+    STAGES.forEach(stage => {
+      const val = r.answers[`${asset.key}_${stage.key}`] || '(미입력)';
+      html += `<div class="detail-field">
+        <div class="df-lbl">${stage.sym} ${stage.label}</div>
+        <div class="df-val">${esc(val)}</div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  if (r.coaching) {
+    html += `<div class="card">
+      <div class="card-ttl">🤖 AI 코칭 기록</div>
+      <div style="font-size:14px;line-height:1.7;white-space:pre-wrap">${esc(r.coaching)}</div>
+    </div>`;
+  }
+
+  document.getElementById('detail-body').innerHTML = html;
+  show('s-detail');
+  showTabBar(false);
+}
+
+function backToRecord() {
+  renderRecordList();
+  show('s-record');
+  showTabBar(true);
+  setTabActive('record');
+}
+
+function deleteRecord() {
+  if (!confirm('이 기록을 삭제하시겠어요?')) return;
+  const recs = getRecords().filter(r => r.id !== currentDetailId);
+  lsS('records', recs);
+  backToRecord();
+  toast('삭제되었어요');
+}
+
+// ══════════════════════════════════════════════
+// 패턴 비교
+// ══════════════════════════════════════════════
+function showPattern() {
+  const recs = getRecords().slice(0, 6); // 최근 6주
+  document.getElementById('pat-weeks').textContent = `최근 ${recs.length}주`;
+
+  const weekLabels = recs.map(r => r.dateLabel.replace(/년|월/g, '.').replace('일', '').replace(/\s+/g, ''));
+
+  let html = '';
+
+  // 자산별 패턴
+  ASSETS.forEach(asset => {
+    html += `<div class="card">
+      <span class="badge ${asset.cls}">${asset.icon} ${asset.label}</span>
+
+      <!-- 지난 주 다음 행동 → 이번 주 실제 (실천 추적) -->`;
+
+    if (recs.length >= 2) {
+      html += `<div style="margin-bottom:14px">
+        <div class="card-ttl">📌 실천 추적 — "다음 행동 → 실제"</div>`;
+      for (let i = 0; i < Math.min(recs.length - 1, 4); i++) {
+        const nextAction = recs[i+1].answers[`${asset.key}_next`] || '(미입력)';
+        const reality    = recs[i].answers[`${asset.key}_reality`] || '(미입력)';
+        html += `<div style="font-size:13px;margin-bottom:10px;border-left:3px solid var(--border);padding-left:10px">
+          <div style="color:var(--sub);margin-bottom:3px">${esc(recs[i+1].dateLabel)} → 계획</div>
+          <div style="margin-bottom:6px">${esc(nextAction)}</div>
+          <div style="color:var(--sub);margin-bottom:3px">${esc(recs[i].dateLabel)} → 실제</div>
+          <div>${esc(reality)}</div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // 격차·태도 비교 (성장 흐름)
+    html += `<div class="card-ttl">🔍 격차·태도 흐름</div>
+      <div class="tbl-wrap"><table>
+        <tr><th>주차</th><th>격차·태도</th></tr>`;
+    recs.forEach((r, i) => {
+      html += `<tr><td style="white-space:nowrap;color:var(--sub)">${esc(weekLabels[i])}</td>
+        <td>${esc(r.answers[`${asset.key}_gap`] || '(미입력)')}</td></tr>`;
+    });
+    html += `</table></div></div>`;
+  });
+
+  document.getElementById('pattern-body').innerHTML = html;
+  show('s-pattern');
+  showTabBar(false);
+}
+
+// ══════════════════════════════════════════════
+// AI 코칭 프롬프트 생성
+// ══════════════════════════════════════════════
+function buildPrompt() {
+  const recs   = getRecords();
+  const goals  = getGoals();
+  const latest = recs[0];
+
+  if (!latest) { toast('먼저 이번 주 회고를 작성해주세요'); return; }
+
+  const inclPattern  = document.getElementById('sc-pattern').checked;
+  const inclGrowth   = document.getElementById('sc-growth').checked;
+  const customQ      = v('coaching-custom');
+
+  const g = (obj, key) => obj?.[key] || '(미입력)';
+
+  let prompt = `아래는 나의 주간 회고 기록입니다. 이를 바탕으로 코칭을 부탁합니다.\n\n`;
+
+  // 장기 목표
+  prompt += `[나의 장기 목표]\n`;
+  ASSETS.forEach(a => {
+    prompt += `■ ${a.label}\n`;
+    prompt += `  3년: ${g(goals[a.key], 'y3')}\n`;
+    prompt += `  장기: ${g(goals[a.key], 'long')}\n`;
+    prompt += `  로드맵: ${g(goals[a.key], 'road')}\n`;
+  });
+
+  // 이번 주 회고
+  prompt += `\n[이번 주 회고 — ${latest.dateLabel}]\n`;
+  ASSETS.forEach(a => {
+    prompt += `\n< ${a.icon} ${a.label} >\n`;
+    STAGES.forEach(s => {
+      prompt += `${s.sym} ${s.label}: ${latest.answers[`${a.key}_${s.key}`] || '(미입력)'}\n`;
+    });
+  });
+
+  // 패턴 포함 시
+  if (inclPattern && recs.length >= 2) {
+    prompt += `\n[최근 ${Math.min(recs.length, 4)}주 흐름 — "다음 행동 계획"]\n`;
+    ASSETS.forEach(a => {
+      prompt += `■ ${a.label}:\n`;
+      recs.slice(0, 4).forEach(r => {
+        prompt += `  ${r.dateLabel} → ${r.answers[`${a.key}_next`] || '(미입력)'}\n`;
+      });
+    });
+  }
+
+  // 코칭 요청
+  prompt += `\n[코칭 요청]\n`;
+  prompt += `1. 각 자산별 이번 주 핵심 포인트\n`;
+  if (inclGrowth) prompt += `2. 격차·태도 답변에서 보이는 인격적 성장 방향 (성과와 별개로)\n`;
+  if (inclPattern && recs.length >= 2) prompt += `3. 최근 흐름에서 반복되는 패턴 또는 고민\n`;
+  prompt += `4. 장기 목표 관점에서 현재 방향성 확인\n`;
+  prompt += `5. 다음 주 가장 중요한 것 1가지\n`;
+  if (customQ) prompt += `\n추가 질문: ${customQ}\n`;
+
+  document.getElementById('coaching-prompt-text').textContent = prompt;
+  document.getElementById('coaching-result').style.display = 'block';
+  window._generatedPrompt = prompt;
+  toast('프롬프트가 생성되었어요');
+}
+
+function copyPrompt() {
+  const text = window._generatedPrompt || document.getElementById('coaching-prompt-text').textContent;
+  navigator.clipboard.writeText(text)
+    .then(() => toast('복사 완료! AI에 붙여넣어 주세요'))
+    .catch(() => toast('복사 실패 — 텍스트를 직접 선택해 복사해 주세요'));
+}
+
+function openAI(which) {
+  const urls = {
+    claude:  'https://claude.ai/new',
+    gemini:  'https://gemini.google.com/',
+    chatgpt: 'https://chatgpt.com/',
+  };
+  window.open(urls[which], '_blank');
+}
+
+function saveCoachingResponse() {
+  const resp = document.getElementById('coaching-response').value.trim();
+  if (!resp) { toast('저장할 내용이 없어요'); return; }
+  const recs = getRecords();
+  if (!recs.length) { toast('회고 기록이 없어요'); return; }
+  recs[0].coaching = resp;
+  lsS('records', recs);
+  toast('코칭 내용이 저장되었어요');
+  document.getElementById('coaching-response').value = '';
+}
+
+// ══════════════════════════════════════════════
+// 설정
+// ══════════════════════════════════════════════
+function loadSettings() {
+  const c = getCfg();
+  sv('s-worker', c.workerUrl || '');
+  sv('s-dbid',   c.notionDbId || '');
+  sv('s-secret', c.secret || '');
+  const notifOn = ls('notif', false);
+  const btn = document.getElementById('toggle-notif');
+  btn.classList.toggle('on', notifOn);
+  document.getElementById('notif-guide').style.display = notifOn ? 'block' : 'none';
+}
+
+function saveNotionSettings() {
+  const c = getCfg();
+  lsS('cfg', { ...c, workerUrl: v('s-worker'), notionDbId: v('s-dbid'), secret: v('s-secret') });
+  toast('Notion 설정이 저장되었어요');
+}
+
+async function toggleNotif() {
+  const btn = document.getElementById('toggle-notif');
+  const isOn = btn.classList.contains('on');
+  if (!isOn) {
+    if (!('Notification' in window)) { toast('이 브라우저는 알림을 지원하지 않아요'); return; }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast('알림 권한이 거부되었어요'); return; }
+    navigator.serviceWorker?.controller?.postMessage({ type: 'SCHEDULE_NOTIFICATION' });
+  }
+  btn.classList.toggle('on', !isOn);
+  lsS('notif', !isOn);
+  document.getElementById('notif-guide').style.display = !isOn ? 'block' : 'none';
+  toast(!isOn ? '일요일 저녁 8시에 알림이 와요' : '알림이 꺼졌어요');
+}
+
+// ══════════════════════════════════════════════
+// 데이터
+// ══════════════════════════════════════════════
+function exportData() {
+  const blob = new Blob([JSON.stringify({ goals: getGoals(), records: getRecords(), exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `review-${getWeekKey()}.json` });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function importData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  new FileReader().onload = ev => {
+    try {
+      const d = JSON.parse(ev.target.result);
+      if (d.goals)   lsS('goals', d.goals);
+      if (d.records) lsS('records', d.records);
+      initHome(); toast('가져오기 완료!');
+    } catch { toast('파일 형식이 올바르지 않아요'); }
+  }, new FileReader().readAsText(file);
+  // 올바른 방식으로 재작성
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const d = JSON.parse(ev.target.result);
+      if (d.goals)   lsS('goals', d.goals);
+      if (d.records) lsS('records', d.records);
+      initHome(); toast('가져오기 완료!');
+    } catch { toast('파일 형식이 올바르지 않아요'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+function resetAll() {
+  if (!confirm('모든 목표와 기록이 삭제됩니다. 계속하시겠어요?')) return;
+  ['goals','records','cfg','notif'].forEach(k => localStorage.removeItem(k));
+  location.reload();
+}
+
+// ══════════════════════════════════════════════
+// Notion 연동
+// ══════════════════════════════════════════════
+async function notionReq(path, method='POST', body=null) {
+  const c = getCfg();
+  if (!c.workerUrl) return null;
+  try {
+    const r = await fetch(c.workerUrl.replace(/\/$/, '') + path, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'X-Secret': c.secret || '' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return await r.json();
+  } catch { return null; }
+}
+
+async function syncGoalsToNotion(goals) {
+  const c = getCfg();
+  if (!c.workerUrl || !c.notionDbId) return;
+  await notionReq('/pages', 'POST', {
+    parent: { database_id: c.notionDbId },
+    properties: {
+      '이름':  { title: [{ text: { content: `장기 목표 (${new Date().toLocaleDateString('ko-KR')})` } }] },
+      '유형':  { select: { name: '장기목표' } },
+      '내용':  { rich_text: [{ text: { content: JSON.stringify(goals, null, 2).substring(0, 2000) } }] },
+    },
+  });
+}
+
+async function syncRecordToNotion(record) {
+  const c = getCfg();
+  if (!c.workerUrl || !c.notionDbId) return;
+  const a = record.answers;
+  await notionReq('/pages', 'POST', {
+    parent: { database_id: c.notionDbId },
+    properties: {
+      '이름':       { title: [{ text: { content: record.dateLabel } }] },
+      '유형':       { select: { name: '주간회고' } },
+      '주차':       { rich_text: [{ text: { content: record.weekKey } }] },
+      '커리어_목표': { rich_text: [{ text: { content: a.career_goal || '' } }] },
+      '커리어_실제': { rich_text: [{ text: { content: a.career_reality || '' } }] },
+      '커리어_격차': { rich_text: [{ text: { content: a.career_gap || '' } }] },
+      '커리어_다음': { rich_text: [{ text: { content: a.career_next || '' } }] },
+      '관계_목표':   { rich_text: [{ text: { content: a.relation_goal || '' } }] },
+      '관계_실제':   { rich_text: [{ text: { content: a.relation_reality || '' } }] },
+      '관계_격차':   { rich_text: [{ text: { content: a.relation_gap || '' } }] },
+      '관계_다음':   { rich_text: [{ text: { content: a.relation_next || '' } }] },
+      '건강_목표':   { rich_text: [{ text: { content: a.health_goal || '' } }] },
+      '건강_실제':   { rich_text: [{ text: { content: a.health_reality || '' } }] },
+      '건강_격차':   { rich_text: [{ text: { content: a.health_gap || '' } }] },
+      '건강_다음':   { rich_text: [{ text: { content: a.health_next || '' } }] },
+    },
+  });
+  toast('노션에 저장되었어요 ✓');
+}
+
+// ══════════════════════════════════════════════
+// 네비게이션
+// ══════════════════════════════════════════════
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 's-settings') loadSettings();
+  if (id === 's-home')     initHome();
+  window.scrollTo(0, 0);
+}
+
+function showTabBar(on) {
+  document.getElementById('tab-bar').style.display = on ? 'flex' : 'none';
+}
+
+function setTabActive(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('tab-' + name)?.classList.add('on');
+}
+
+function showTab(name) {
+  setTabActive(name);
+  if (name === 'home')     { show('s-home');     initHome(); }
+  if (name === 'record')   { show('s-record');   renderRecordList(); }
+  if (name === 'coaching') { show('s-coaching'); }
+  if (name === 'settings') { show('s-settings'); }
+  showTabBar(true);
+}
+
+// ══════════════════════════════════════════════
+// 유틸
+// ══════════════════════════════════════════════
+const v   = id => document.getElementById(id)?.value?.trim() || '';
+const sv  = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function getWeekKey() {
+  const d = new Date(), d0 = new Date(d.getFullYear(), 0, 1);
+  const wk = Math.ceil(((d - d0) / 86400000 + d0.getDay() + 1) / 7);
+  return `${d.getFullYear()}-W${String(wk).padStart(2,'0')}`;
+}
+
+let _tid;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(_tid); _tid = setTimeout(() => t.classList.remove('on'), 2600);
+}
+</script>
+</body>
+</html>
