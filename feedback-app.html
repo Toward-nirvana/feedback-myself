@@ -475,19 +475,15 @@
     <div class="card">
       <div class="card-ttl">📋 Notion 연동 <span style="font-weight:400;color:var(--sub)">(선택 — 멀티기기 동기화)</span></div>
       <div class="guide">
-        <strong>설정 방법 (5분):</strong><br>
-        1. notion-worker.js → Cloudflare Workers 배포 (무료)<br>
-        2. Worker URL 아래 입력<br>
-        3. Notion 통합 토큰 + DB ID 입력<br>
-        → 이후 모든 기기에서 기록이 자동 동기화됩니다.
+        <strong>설정 방법:</strong><br>
+        1. make.com 에서 시나리오 생성<br>
+        2. Webhook URL을 아래에 붙여넣기<br>
+        → 회고 저장 시 Notion에 자동으로 기록됩니다.
       </div>
-      <label>Worker URL</label>
-      <input type="url" id="s-worker" placeholder="https://your-worker.workers.dev">
-      <label>Notion DB ID</label>
-      <input type="text" id="s-dbid" placeholder="32자리 영숫자">
-      <label>Notion 보안 토큰 <span style="font-weight:400;color:var(--sub)">(Worker 배포 시 설정한 값)</span></label>
-      <input type="password" id="s-secret" placeholder="임의의 비밀 문자열">
+      <label>Make.com Webhook URL</label>
+      <input type="url" id="s-webhook" placeholder="https://hook.eu1.make.com/…">
       <button class="btn btn-p" onclick="saveNotionSettings()">저장</button>
+      <button class="btn btn-s" onclick="testWebhook()" style="width:100%;margin-top:8px">연결 테스트</button>
     </div>
 
     <div class="card">
@@ -944,9 +940,7 @@ function saveCoachingResponse() {
 // ══════════════════════════════════════════════
 function loadSettings() {
   const c = getCfg();
-  sv('s-worker', c.workerUrl || '');
-  sv('s-dbid',   c.notionDbId || '');
-  sv('s-secret', c.secret || '');
+  sv('s-webhook', c.webhookUrl || '');
   const notifOn = ls('notif', false);
   const btn = document.getElementById('toggle-notif');
   btn.classList.toggle('on', notifOn);
@@ -955,8 +949,23 @@ function loadSettings() {
 
 function saveNotionSettings() {
   const c = getCfg();
-  lsS('cfg', { ...c, workerUrl: v('s-worker'), notionDbId: v('s-dbid'), secret: v('s-secret') });
-  toast('Notion 설정이 저장되었어요');
+  lsS('cfg', { ...c, webhookUrl: v('s-webhook') });
+  toast('Webhook URL이 저장되었어요');
+}
+
+async function testWebhook() {
+  const c = getCfg();
+  if (!c.webhookUrl) { toast('먼저 Webhook URL을 저장해주세요'); return; }
+  try {
+    await fetch(c.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'test', message: '주간 회고 앱 연결 테스트' }),
+    });
+    toast('✅ 연결 성공! Make.com을 확인해보세요');
+  } catch {
+    toast('❌ 연결 실패 — URL을 다시 확인해주세요');
+  }
 }
 
 async function toggleNotif() {
@@ -1012,57 +1021,54 @@ function resetAll() {
 }
 
 // ══════════════════════════════════════════════
-// Notion 연동
+// Notion 연동 (Make.com 웹훅 방식)
 // ══════════════════════════════════════════════
-async function notionReq(path, method='POST', body=null) {
+async function sendWebhook(payload) {
   const c = getCfg();
-  if (!c.workerUrl) return null;
+  if (!c.webhookUrl) return;
   try {
-    const r = await fetch(c.workerUrl.replace(/\/$/, '') + path, {
-      method,
-      headers: { 'Content-Type': 'application/json', 'X-Secret': c.secret || '' },
-      body: body ? JSON.stringify(body) : undefined,
+    await fetch(c.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
-    return await r.json();
-  } catch { return null; }
+  } catch { /* 연동 실패는 조용히 무시 — 앱 기능에는 영향 없음 */ }
 }
 
 async function syncGoalsToNotion(goals) {
-  const c = getCfg();
-  if (!c.workerUrl || !c.notionDbId) return;
-  await notionReq('/pages', 'POST', {
-    parent: { database_id: c.notionDbId },
-    properties: {
-      '이름':  { title: [{ text: { content: `장기 목표 (${new Date().toLocaleDateString('ko-KR')})` } }] },
-      '유형':  { select: { name: '장기목표' } },
-      '내용':  { rich_text: [{ text: { content: JSON.stringify(goals, null, 2).substring(0, 2000) } }] },
-    },
+  await sendWebhook({
+    type: 'goals',
+    date: new Date().toLocaleDateString('ko-KR'),
+    career_y3:   goals.career?.y3   || '',
+    career_long: goals.career?.long || '',
+    career_road: goals.career?.road || '',
+    relation_y3:   goals.relation?.y3   || '',
+    relation_long: goals.relation?.long || '',
+    relation_road: goals.relation?.road || '',
+    health_y3:   goals.health?.y3   || '',
+    health_long: goals.health?.long || '',
+    health_road: goals.health?.road || '',
   });
 }
 
 async function syncRecordToNotion(record) {
-  const c = getCfg();
-  if (!c.workerUrl || !c.notionDbId) return;
   const a = record.answers;
-  await notionReq('/pages', 'POST', {
-    parent: { database_id: c.notionDbId },
-    properties: {
-      '이름':       { title: [{ text: { content: record.dateLabel } }] },
-      '유형':       { select: { name: '주간회고' } },
-      '주차':       { rich_text: [{ text: { content: record.weekKey } }] },
-      '커리어_목표': { rich_text: [{ text: { content: a.career_goal || '' } }] },
-      '커리어_실제': { rich_text: [{ text: { content: a.career_reality || '' } }] },
-      '커리어_격차': { rich_text: [{ text: { content: a.career_gap || '' } }] },
-      '커리어_다음': { rich_text: [{ text: { content: a.career_next || '' } }] },
-      '관계_목표':   { rich_text: [{ text: { content: a.relation_goal || '' } }] },
-      '관계_실제':   { rich_text: [{ text: { content: a.relation_reality || '' } }] },
-      '관계_격차':   { rich_text: [{ text: { content: a.relation_gap || '' } }] },
-      '관계_다음':   { rich_text: [{ text: { content: a.relation_next || '' } }] },
-      '건강_목표':   { rich_text: [{ text: { content: a.health_goal || '' } }] },
-      '건강_실제':   { rich_text: [{ text: { content: a.health_reality || '' } }] },
-      '건강_격차':   { rich_text: [{ text: { content: a.health_gap || '' } }] },
-      '건강_다음':   { rich_text: [{ text: { content: a.health_next || '' } }] },
-    },
+  await sendWebhook({
+    type:           '주간회고',
+    name:           record.dateLabel,
+    weekKey:        record.weekKey,
+    career_goal:    a.career_goal    || '',
+    career_reality: a.career_reality || '',
+    career_gap:     a.career_gap     || '',
+    career_next:    a.career_next    || '',
+    relation_goal:    a.relation_goal    || '',
+    relation_reality: a.relation_reality || '',
+    relation_gap:     a.relation_gap     || '',
+    relation_next:    a.relation_next    || '',
+    health_goal:    a.health_goal    || '',
+    health_reality: a.health_reality || '',
+    health_gap:     a.health_gap     || '',
+    health_next:    a.health_next    || '',
   });
   toast('노션에 저장되었어요 ✓');
 }
